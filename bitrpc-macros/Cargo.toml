@@ -1,0 +1,15 @@
+[package]
+name = "bitrpc-macros"
+description = "Macros for bitrpc binary RPC Library based on bitcode"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "extra-traits"] }
+heck = "0.5"

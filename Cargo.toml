@@ -1,0 +1,42 @@
+[package]
+name = "bitrpc"
+version = "0.2.1"
+edition = "2024"
+license = "MIT"
+description = "A simple Rust only RPC library based on bitcode seralization, with optional Compio transport for HTTP3 and io_uring"
+
+[dependencies]
+bitcode = "0.6.7"
+async-trait = "0.1"
+bitrpc-macros = { path = "bitrpc-macros", version = "0.2"}
+
+cyper = { version = "0.5", features = ["http3", "rustls"], optional = true }
+http = { version = "1", optional = true }
+compio-buf = { version = "0.7", optional = true }
+compio-net = { version = "0.9", optional = true }
+compio-quic = { version = "0.5", features = ["h3"], optional = true }
+compio-runtime = { version = "0.9", optional = true }
+compio-dispatcher = { version = "0.8", optional = true }
+num_cpus = { version = "1", optional = true }
+
+[dev-dependencies]
+
+[features]
+default = []
+cyper = ["dep:cyper", "dep:http"]
+compio-quic = [
+    "dep:compio-buf",
+    "dep:compio-net",
+    "dep:compio-quic",
+    "dep:compio-runtime",
+    "dep:http",
+]
+compio-server = [
+    "dep:compio-buf",
+    "dep:compio-net",
+    "dep:compio-quic",
+    "dep:compio-runtime",
+    "dep:compio-dispatcher",
+    "dep:num_cpus",
+    "dep:http",
+]
