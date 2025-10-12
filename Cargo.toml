@@ -1,6 +1,6 @@
 [package]
 name = "bitrpc"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 description = "A simple Rust only RPC library based on bitcode seralization, with optional Compio transport for HTTP3 and io_uring"
@@ -8,7 +8,7 @@ description = "A simple Rust only RPC library based on bitcode seralization, wit
 [dependencies]
 bitcode = "0.6.7"
 async-trait = "0.1"
-bitrpc-macros = { path = "bitrpc-macros", version = "0.2"}
+bitrpc-macros = { path = "bitrpc-macros", version = "0.3"}
 
 cyper = { version = "0.5", features = ["http3", "rustls"], optional = true }
 http = { version = "1", optional = true }

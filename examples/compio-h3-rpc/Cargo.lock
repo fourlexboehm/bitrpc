@@ -127,7 +127,7 @@ checksum = "2261d10cca569e4643e526d8dc2e62e433cc8aba21ab764233731f8d369bf394"
 
 [[package]]
 name = "bitrpc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "bitrpc-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "heck",
  "proc-macro2",

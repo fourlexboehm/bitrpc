@@ -13,3 +13,4 @@ examples/compio-h3-rpc/certs/server.crt.der
 examples/compio-h3-rpc/certs/server.crt.pem
 examples/compio-h3-rpc/certs/server.key.der
 examples/compio-h3-rpc/certs/server.key.pem
+bitrpc-macros/target

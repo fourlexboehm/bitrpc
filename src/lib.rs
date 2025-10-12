@@ -8,6 +8,7 @@ use bitcode::{Decode, Encode};
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 pub enum RpcError {
     Handler { message: String },
+    UnknownMethod,
     Decode { message: String },
     Transport { message: String },
     Unexpected { expected: String, actual: String },
@@ -39,6 +40,10 @@ impl RpcError {
             expected: expected.into(),
             actual: actual.into(),
         }
+    }
+
+    pub fn unknown_method() -> Self {
+        Self::UnknownMethod
     }
 }
 

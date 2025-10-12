@@ -66,7 +66,6 @@ struct MethodArg {
 
 struct MethodInfo {
     method_ident: Ident,
-    variant_ident: Ident,
     request_struct_ident: Ident,
     request_fields: Vec<MethodArg>,
     method_inputs: Vec<syn::PatType>,
@@ -106,16 +105,29 @@ fn expand_service(
     let mut dispatch_arms = Vec::new();
     let mut client_methods = Vec::new();
 
-    for method_info in &methods {
+    // Generate 256 placeholder variants for stable encoding
+    const MAX_METHODS: usize = 256;
+    
+    if methods.len() > MAX_METHODS {
+        return Err(syn::Error::new(
+            input.ident.span(),
+            format!("RPC traits cannot have more than {} methods", MAX_METHODS),
+        ));
+    }
+    
+    // Map methods to placeholder indices based on trait definition order
+    for (method_idx, method_info) in methods.iter().enumerate() {
         let MethodInfo {
             method_ident,
-            variant_ident,
             request_struct_ident,
             request_fields,
             method_inputs,
             success_ty,
             name_literal,
         } = method_info;
+        
+        // Use placeholder variant name for stable encoding
+        let placeholder_ident = format_ident!("Method{}", method_idx);
 
         let mut struct_fields = Vec::new();
         let mut destructure_fields = Vec::new();
@@ -138,16 +150,16 @@ fn expand_service(
             }
         });
 
-        request_variants.push(quote! { #variant_ident(#request_struct_ident) });
-        response_variants.push(quote! { #variant_ident(#success_ty) });
-        request_variant_names.push(quote! { #request_ident::#variant_ident(_) => #name_literal });
-        response_variant_names.push(quote! { #response_ident::#variant_ident(_) => #name_literal });
+        request_variants.push(quote! { #placeholder_ident(#request_struct_ident) });
+        response_variants.push(quote! { #placeholder_ident(#success_ty) });
+        request_variant_names.push(quote! { #request_ident::#placeholder_ident(_) => #name_literal });
+        response_variant_names.push(quote! { #response_ident::#placeholder_ident(_) => #name_literal });
 
         dispatch_arms.push(quote! {
-            #request_ident::#variant_ident(payload) => {
+            #request_ident::#placeholder_ident(payload) => {
                 let #request_struct_ident { #( #destructure_fields, )* } = payload;
                 match handler.#method_ident(#( #argument_idents ),*).await {
-                    ::core::result::Result::Ok(value) => #response_ident::#variant_ident(value),
+                    ::core::result::Result::Ok(value) => #response_ident::#placeholder_ident(value),
                     ::core::result::Result::Err(err) => #response_ident::Error(err),
                 }
             }
@@ -160,16 +172,29 @@ fn expand_service(
 
         client_methods.push(quote! {
             pub async fn #method_ident(&mut self #( , #client_args_def )* ) -> ::bitrpc::Result<#success_ty> {
-                let request = #request_ident::#variant_ident(#request_struct_init);
+                let request = #request_ident::#placeholder_ident(#request_struct_init);
                 let bytes = ::bitrpc::bitcode::encode(&request);
                 let response_bytes = self.transport.call(bytes).await?;
                 let response = #response_ident::decode(&response_bytes)?;
                 match response {
-                    #response_ident::#variant_ident(value) => ::core::result::Result::Ok(value),
+                    #response_ident::#placeholder_ident(value) => ::core::result::Result::Ok(value),
                     #response_ident::Error(err) => ::core::result::Result::Err(err),
                     other => ::core::result::Result::Err(::bitrpc::RpcError::unexpected(#name_literal, other.variant_name())),
                 }
             }
+        });
+    }
+    
+    // Add remaining placeholders for future expansion
+    for i in methods.len()..(MAX_METHODS - 1) { // -1 to leave room for Error variant
+        let placeholder_ident = format_ident!("Placeholder{}", i);
+        request_variants.push(quote! { #placeholder_ident });
+        response_variants.push(quote! { #placeholder_ident });
+        request_variant_names.push(quote! { 
+            #request_ident::#placeholder_ident => concat!("Placeholder", stringify!(#i))
+        });
+        response_variant_names.push(quote! { 
+            #response_ident::#placeholder_ident => concat!("Placeholder", stringify!(#i))
         });
     }
 
@@ -230,6 +255,7 @@ fn expand_service(
         {
             match request {
                 #( #dispatch_arms, )*
+                _ => #response_ident::Error(#error_path::unknown_method()),
             }
         }
 
@@ -393,13 +419,11 @@ fn collect_methods(trait_item: &ItemTrait) -> syn::Result<Vec<MethodInfo>> {
 
                 let method_name = method.sig.ident.to_string();
                 let variant_base = method_name.to_upper_camel_case();
-                let variant_ident = format_ident!("{}", variant_base);
                 let request_struct_ident = format_ident!("{}Request", variant_base);
                 let name_literal = LitStr::new(method_name.as_str(), method.sig.ident.span());
 
                 methods.push(MethodInfo {
                     method_ident: method.sig.ident.clone(),
-                    variant_ident,
                     request_struct_ident,
                     request_fields,
                     method_inputs,
