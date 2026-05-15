@@ -2,7 +2,6 @@ use crate::bufferpool::{
     BitcodeBufferPool, BytesMutPool, PooledBitcodeBuffer, PooledBytesMut, PooledEncodedBytes,
 };
 use compio_buf::bytes::{Buf, Bytes};
-use compio_dispatcher::Dispatcher;
 use compio_quic::{Endpoint, Incoming, ServerConfig};
 use http::Response;
 use std::future::pending;
@@ -11,7 +10,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-pub use crate::{Result, RpcError, async_trait, bitcode};
+pub use crate::{Result, RpcError, RpcRequestService, async_trait, bitcode};
 
 /// Configuration for the RPC server
 pub struct ServerBuilder {
@@ -45,21 +44,7 @@ impl ServerBuilder {
         let request_count = Arc::new(AtomicU64::new(0));
         let start_time = Arc::new(std::time::Instant::now());
 
-        let worker_threads = self
-            .worker_threads
-            .or_else(|| NonZeroUsize::new(num_cpus::get_physical()))
-            .unwrap_or(NonZeroUsize::MIN);
-
-        println!(
-            "Starting RPC server on {} with {} worker threads",
-            self.listen_addr,
-            worker_threads.get()
-        );
-
-        let dispatcher = Dispatcher::builder()
-            .worker_threads(worker_threads)
-            .build()
-            .expect("failed to initialize dispatcher");
+        println!("Starting RPC server on {}", self.listen_addr);
 
         let endpoint = Endpoint::server(&self.listen_addr, self.server_config).await?;
 
@@ -70,7 +55,7 @@ impl ServerBuilder {
                     let start_time = start_time.clone();
                     let service = service.clone();
 
-                    if let Err(_err) = dispatcher.dispatch(move || async move {
+                    compio_runtime::spawn(async move {
                         let bitcode_pool = BitcodeBufferPool::new();
                         let body_pool = BytesMutPool::new();
                         handle_connection(
@@ -82,9 +67,8 @@ impl ServerBuilder {
                             body_pool,
                         )
                         .await;
-                    }) {
-                        eprintln!("dispatcher unavailable; dropping incoming connection");
-                    }
+                    })
+                    .detach();
                 }
                 None => {
                     eprintln!("endpoint closed; stopping accept loop");
@@ -203,7 +187,7 @@ where
 
     let count = request_count.fetch_add(1, Ordering::Relaxed) + 1;
 
-    if count % 10000 == 0 {
+    if count.is_multiple_of(10000) {
         let elapsed = start_time.elapsed().as_secs_f64();
         let rps = count as f64 / elapsed;
         println!("Processed: {} requests, RPS: {:.2}", count, rps);
@@ -225,12 +209,4 @@ where
     stream.finish().await?;
 
     Ok(())
-}
-
-#[allow(async_fn_in_trait)]
-pub trait RpcRequestService: Clone {
-    type Request: for<'a> bitcode::Decode<'a>;
-    type Response: bitcode::Encode;
-
-    async fn dispatch(&self, request: Self::Request) -> Self::Response;
 }

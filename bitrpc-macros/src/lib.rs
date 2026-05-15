@@ -5,20 +5,8 @@ use syn::parse::{Parse, Parser};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use syn::{
-    parse_macro_input,
-    parse_quote,
-    spanned::Spanned,
-    Expr,
-    FnArg,
-    Ident,
-    ItemTrait,
-    LitStr,
-    Pat,
-    Path,
-    PathArguments,
-    TraitItem,
-    Type,
-    TypeParamBound,
+    Expr, FnArg, Ident, ItemTrait, LitStr, Pat, Path, PathArguments, TraitItem, Type,
+    TypeParamBound, parse_macro_input, parse_quote, spanned::Spanned,
 };
 
 #[proc_macro_attribute]
@@ -107,14 +95,14 @@ fn expand_service(
 
     // Generate 256 placeholder variants for stable encoding
     const MAX_METHODS: usize = 256;
-    
+
     if methods.len() > MAX_METHODS {
         return Err(syn::Error::new(
             input.ident.span(),
             format!("RPC traits cannot have more than {} methods", MAX_METHODS),
         ));
     }
-    
+
     // Map methods to placeholder indices based on trait definition order
     for (method_idx, method_info) in methods.iter().enumerate() {
         let MethodInfo {
@@ -125,7 +113,7 @@ fn expand_service(
             success_ty,
             name_literal,
         } = method_info;
-        
+
         // Use placeholder variant name for stable encoding
         let placeholder_ident = format_ident!("Method{}", method_idx);
 
@@ -152,8 +140,10 @@ fn expand_service(
 
         request_variants.push(quote! { #placeholder_ident(#request_struct_ident) });
         response_variants.push(quote! { #placeholder_ident(#success_ty) });
-        request_variant_names.push(quote! { #request_ident::#placeholder_ident(_) => #name_literal });
-        response_variant_names.push(quote! { #response_ident::#placeholder_ident(_) => #name_literal });
+        request_variant_names
+            .push(quote! { #request_ident::#placeholder_ident(_) => #name_literal });
+        response_variant_names
+            .push(quote! { #response_ident::#placeholder_ident(_) => #name_literal });
 
         dispatch_arms.push(quote! {
             #request_ident::#placeholder_ident(payload) => {
@@ -184,16 +174,17 @@ fn expand_service(
             }
         });
     }
-    
+
     // Add remaining placeholders for future expansion
-    for i in methods.len()..(MAX_METHODS - 1) { // -1 to leave room for Error variant
+    for i in methods.len()..(MAX_METHODS - 1) {
+        // -1 to leave room for Error variant
         let placeholder_ident = format_ident!("Placeholder{}", i);
         request_variants.push(quote! { #placeholder_ident });
         response_variants.push(quote! { #placeholder_ident });
-        request_variant_names.push(quote! { 
+        request_variant_names.push(quote! {
             #request_ident::#placeholder_ident => concat!("Placeholder", stringify!(#i))
         });
-        response_variant_names.push(quote! { 
+        response_variant_names.push(quote! {
             #response_ident::#placeholder_ident => concat!("Placeholder", stringify!(#i))
         });
     }
@@ -334,7 +325,9 @@ fn ensure_async_trait(trait_item: &mut ItemTrait) -> syn::Result<()> {
 
     if !has_send {
         if !trait_item.supertraits.is_empty() {
-            trait_item.supertraits.push_punct(syn::token::Plus::default());
+            trait_item
+                .supertraits
+                .push_punct(syn::token::Plus::default());
         }
         trait_item
             .supertraits
@@ -343,7 +336,9 @@ fn ensure_async_trait(trait_item: &mut ItemTrait) -> syn::Result<()> {
 
     if !has_sync {
         if !trait_item.supertraits.is_empty() {
-            trait_item.supertraits.push_punct(syn::token::Plus::default());
+            trait_item
+                .supertraits
+                .push_punct(syn::token::Plus::default());
         }
         trait_item
             .supertraits
@@ -408,10 +403,7 @@ fn collect_methods(trait_item: &ItemTrait) -> syn::Result<Vec<MethodInfo>> {
                             ));
                         }
                     } else {
-                        return Err(syn::Error::new(
-                            arg.span(),
-                            "unsupported argument type",
-                        ));
+                        return Err(syn::Error::new(arg.span(), "unsupported argument type"));
                     }
                 }
 
@@ -456,7 +448,7 @@ fn extract_success_type(sig: &syn::Signature) -> syn::Result<Type> {
             return Err(syn::Error::new(
                 sig.span(),
                 "RPC trait methods must return ::bitrpc::Result<T>",
-            ))
+            ));
         }
         syn::ReturnType::Type(_, ty) => ty,
     };
@@ -523,7 +515,7 @@ fn parse_service_options(
                     return Err(syn::Error::new(
                         arg.value.span(),
                         "request must be a simple identifier",
-                    ))
+                    ));
                 }
             },
             "response" => match arg.value {
@@ -534,7 +526,7 @@ fn parse_service_options(
                     return Err(syn::Error::new(
                         arg.value.span(),
                         "response must be a simple identifier",
-                    ))
+                    ));
                 }
             },
             "client" => match arg.value {
@@ -545,25 +537,20 @@ fn parse_service_options(
                     return Err(syn::Error::new(
                         arg.value.span(),
                         "client must be a simple identifier",
-                    ))
+                    ));
                 }
             },
             "error" => match arg.value {
                 Expr::Path(expr_path) => {
                     error_path = Some(expr_path.path.clone());
                 }
-                _ => {
-                    return Err(syn::Error::new(
-                        arg.value.span(),
-                        "error must be a path",
-                    ))
-                }
+                _ => return Err(syn::Error::new(arg.value.span(), "error must be a path")),
             },
             _ => {
                 return Err(syn::Error::new(
                     arg.key.span(),
                     "unsupported service option",
-                ))
+                ));
             }
         }
     }

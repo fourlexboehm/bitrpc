@@ -1,18 +1,18 @@
 use crate::{Result, RpcError, RpcTransport};
 use cyper::Client;
 use http::Version;
-use std::sync::Arc;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct CyperTransport {
-    client: Arc<Client>,
+    client: Rc<Client>,
     url: String,
 }
 
 impl CyperTransport {
     pub fn new(url: String) -> Self {
         Self {
-            client: Arc::new(Client::new()),
+            client: Rc::new(Client::new()),
             url,
         }
     }

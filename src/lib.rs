@@ -70,8 +70,19 @@ pub trait RpcTransport {
 
 pub type DecodeError = bitcode::Error;
 
+#[allow(async_fn_in_trait)]
+pub trait RpcRequestService: Clone {
+    type Request: for<'a> bitcode::Decode<'a>;
+    type Response: bitcode::Encode;
+
+    async fn dispatch(&self, request: Self::Request) -> Self::Response;
+}
+
 #[cfg(feature = "cyper")]
 pub mod cyper;
+
+#[cfg(feature = "tokio")]
+pub mod tokio;
 
 #[cfg(feature = "compio-quic")]
 pub mod compio_quic;
@@ -82,4 +93,4 @@ mod bufferpool;
 #[cfg(feature = "compio-server")]
 pub mod compio_server;
 #[cfg(feature = "compio-server")]
-pub use compio_server::{RpcRequestService, ServerBuilder};
+pub use compio_server::ServerBuilder;
